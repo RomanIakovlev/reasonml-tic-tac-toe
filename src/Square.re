@@ -2,7 +2,7 @@ type action =
     | NoAction
 
 type state = {
-    value: Common.buttonStatus
+    value: Common.player
 };
 
 let component = ReasonReact.statelessComponent("Square");
