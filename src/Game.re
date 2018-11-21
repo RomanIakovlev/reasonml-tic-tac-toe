@@ -1,9 +1,5 @@
 open Common;
 
-type action =
-  | Square(int)
-  | GotoHistory(int);
-
 type stateElement = {
   squares: array(option(player)),
   nextMove: player,
@@ -11,6 +7,10 @@ type stateElement = {
 };
 
 type state = list(stateElement);
+
+type action =
+  | Square(int)
+  | GotoHistory(int);
 
 let component = ReasonReact.reducerComponent("Game");
 
@@ -29,17 +29,16 @@ let calculateGameStatus = squares => {
     [|2, 4, 6|],
   ];
   let r: list((option(player), array(int))) =
-    List.map(
-      a =>
-        if (squares[a[0]] != None
-            && squares[a[0]] == squares[a[1]]
-            && squares[a[0]] == squares[a[2]]) {
-          (squares[a[0]], a);
-        } else {
-          (None, a);
-        },
-      winningPositions,
-    );
+    winningPositions
+    |> List.map(a =>
+         if (squares[a[0]] != None
+             && squares[a[0]] == squares[a[1]]
+             && squares[a[0]] == squares[a[2]]) {
+           (squares[a[0]], a);
+         } else {
+           (None, a);
+         }
+       );
 
   let filtered: list((player, array(int))) =
     Belt.List.keepMap(
@@ -54,7 +53,7 @@ let calculateGameStatus = squares => {
   | [(PlayerX, position), ..._] => WinnerX(position)
   | [(Player0, position), ..._] => Winner0(position)
   | [] =>
-    if (List.for_all(a => a != None, Array.to_list(squares))) {
+    if (Array.to_list(squares) |> List.for_all(a => a != None)) {
       Draw;
     } else {
       Continue;
@@ -118,29 +117,25 @@ let make = _children => {
   render: self => {
     let historyClick = (historyStep, _event) =>
       self.ReasonReact.send(GotoHistory(historyStep));
+    let currentState = stateOrInitial(self.state);
     <div className="game">
       <div className="game-board">
         <Board
           onClick={onClick(self)}
-          squares={
-            switch (self.state) {
-            | [hd, ..._] => hd.squares
-            | [] => [|None, None, None, None, None, None, None, None, None|]
-            }
-          }
+          squares={currentState.squares}
+          winner={currentState.winner}
         />
       </div>
       <div className="game-info">
         {
-          let currentState = stateOrInitial(self.state)
           switch (currentState.winner) {
           | Continue =>
             switch (currentState.nextMove) {
             | PlayerX => ReasonReact.string("Next player X")
             | Player0 => ReasonReact.string("Next player 0")
             }
-          | WinnerX(position) => ReasonReact.string("Player X won")
-          | Winner0(position) => ReasonReact.string("Player 0 won")
+          | WinnerX(_) => ReasonReact.string("Player X won")
+          | Winner0(_) => ReasonReact.string("Player 0 won")
           | Draw => ReasonReact.string("Draw")
           }
         }
@@ -148,22 +143,20 @@ let make = _children => {
           {
             ReasonReact.array(
               Array.of_list(
-                List.mapi(
-                  (index, element) => {
-                    let desc =
-                      if (index == 0) {
-                        "Go to game start";
-                      } else {
-                        "Go to step " ++ string_of_int(index);
-                      };
-                    <li key={string_of_int(index)}>
-                      <button onClick={historyClick(index)}>
-                        {ReasonReact.string(desc)}
-                      </button>
-                    </li>;
-                  },
-                  self.state,
-                ),
+                self.state
+                |> List.mapi((index, element) => {
+                     let desc =
+                       if (index == 0) {
+                         "Go to game start";
+                       } else {
+                         "Go to step " ++ string_of_int(index);
+                       };
+                     <li key={string_of_int(index)}>
+                       <button onClick={historyClick(index)}>
+                         {ReasonReact.string(desc)}
+                       </button>
+                     </li>;
+                   }),
               ),
             )
           }
