@@ -1,14 +1,11 @@
 type action =
   | NoAction;
 
+[@react.state]
 type state = {value: Common.player};
 
-let component = ReasonReact.statelessComponent("Square");
-
-let make = (~value, ~onClick, ~highlight, _children) => {
-  ...component,
-  render: _self => {
+[@react.component]
+let make = (~value, ~onClick, ~highlight) => {
     let cls = "square" ++ (highlight ? " highlight" : "");
     <button className=cls onClick> {ReasonReact.string(value)} </button>;
-  },
 };

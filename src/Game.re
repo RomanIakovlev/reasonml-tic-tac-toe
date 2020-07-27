@@ -12,10 +12,8 @@ type action =
   | Square(int)
   | GotoHistory(int);
 
-let component = ReasonReact.reducerComponent("Game");
-
-let onClick = (self, square, _event) =>
-  self.ReasonReact.send(Square(square));
+let onClick = (dispatch, square, _event) =>
+  dispatch(Square(square));
 
 let calculateGameStatus = squares => {
   let winningPositions = [
@@ -92,8 +90,8 @@ let handleMove = (state, currentMove) => {
       },
       ...state,
     ];
-    ReasonReact.Update(newState);
-  | _ => ReasonReact.NoUpdate
+    newState
+  | _ => state
   };
 };
 
@@ -103,25 +101,24 @@ let handleGotoHistory = (state, historyStep) => {
       Belt.List.drop(state, List.length(state) - historyStep - 1),
       [initialState],
     );
-  ReasonReact.Update(newHistory);
+  newHistory
 };
 
-let make = _children => {
-  ...component,
-  initialState: () => [initialState],
-  reducer: (action, state) =>
-    switch (action) {
+[@react.component]
+let make = () => {
+  let (state, dispatch) = React.useReducer((state, action) => 
+  switch (action) {
     | Square(square) => handleMove(state, square)
     | GotoHistory(historyStep) => handleGotoHistory(state, historyStep)
-    },
-  render: self => {
+    }, [initialState]);
+  
     let historyClick = (historyStep, _event) =>
-      self.ReasonReact.send(GotoHistory(historyStep));
-    let currentState = stateOrInitial(self.state);
+      dispatch(GotoHistory(historyStep));
+    let currentState = stateOrInitial(state);
     <div className="game">
       <div className="game-board">
         <Board
-          onClick={onClick(self)}
+          onClick={onClick(dispatch)}
           squares={currentState.squares}
           winner={currentState.winner}
         />
@@ -143,7 +140,7 @@ let make = _children => {
           {
             ReasonReact.array(
               Array.of_list(
-                self.state
+                state
                 |> List.mapi((index, element) => {
                      let desc =
                        if (index == 0) {
@@ -163,5 +160,5 @@ let make = _children => {
         </ol>
       </div>
     </div>;
-  },
+
 };

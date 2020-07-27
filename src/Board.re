@@ -1,13 +1,10 @@
 open Common;
 
-let component = ReasonReact.statelessComponent("Board");
-
 let renderSquare = (i, squares, highlight, onClick) =>
   <Square value={statusValue(squares[i])} onClick={onClick(i)} highlight />;
 
-let make = (~onClick, ~squares, ~winner, _children) => {
-  ...component,
-  render: _self => {
+[@react.component]
+let make = (~onClick, ~squares, ~winner) => {
     let squares = squares;
     let highlight =
       switch (winner) {
@@ -27,5 +24,4 @@ let make = (~onClick, ~squares, ~winner, _children) => {
       <div className="board-row"> {render(3)} {render(4)} {render(5)} </div>
       <div className="board-row"> {render(6)} {render(7)} {render(8)} </div>
     </div>;
-  },
 };
