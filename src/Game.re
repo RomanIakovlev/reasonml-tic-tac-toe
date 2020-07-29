@@ -15,52 +15,50 @@ type action =
 let onClick = (dispatch, square, _event) =>
   dispatch(Square(square));
 
-let calculateGameStatus = squares => {
-  let winningPositions = [
-    [|0, 1, 2|],
-    [|3, 4, 5|],
-    [|6, 7, 8|],
-    [|0, 3, 6|],
-    [|1, 4, 7|],
-    [|2, 5, 8|],
-    [|0, 4, 8|],
-    [|2, 4, 6|],
-  ];
-  let r: list((option(player), array(int))) =
-    winningPositions
-    |> List.map(a =>
-         if (squares[a[0]] != None
-             && squares[a[0]] == squares[a[1]]
-             && squares[a[0]] == squares[a[2]]) {
-           (squares[a[0]], a);
-         } else {
-           (None, a);
-         }
-       );
+[@react.component]
+let make = (~size) => {
 
-  let filtered: list((player, array(int))) =
-    Belt.List.keepMap(
-      r,
-      x => {
-        let t = Belt.Option.map(fst(x), y => (y, snd(x)));
-        t;
-      },
-    );
+  let calculateGameStatus(squares) = {
+    let horizontal = List.init(size)(x => x) |> List.map(a => Array.init(size)(x => x + a * size));
+    let vertical = List.init(size)(x => x) |> List.map(a => Array.init(size)(x => (x * size) + a));
+    let diag1 = Array.init(size)(x => x * size + x);
+    let diag2 = Array.init(size)(x => (size - 1) + (x * (size - 1)));
+    let winningPositions = horizontal @ vertical @ [diag1] @ [diag2];
 
-  switch (filtered) {
-  | [(PlayerX, position), ..._] => WinnerX(position)
-  | [(Player0, position), ..._] => Winner0(position)
-  | [] =>
-    if (Array.to_list(squares) |> List.for_all(a => a != None)) {
-      Draw;
-    } else {
-      Continue;
-    }
+    let winCandidates: list((option(player), array(int))) =
+      winningPositions |> List.map(winPos => {
+        let winningSequenceExists = 
+          winPos |> Array.for_all(b => squares[b] == squares[winPos[0]]);
+        if (squares[winPos[0]] != None && winningSequenceExists) {
+          (squares[winPos[0]], winPos);
+        } else {
+          (None, winPos);
+        }
+      });
+
+    let filtered: list((player, array(int))) =
+      Belt.List.keepMap(
+        winCandidates,
+        x => {
+          let t = Belt.Option.map(fst(x), y => (y, snd(x)));
+          t;
+        },
+      );
+
+    switch (filtered) {
+    | [(PlayerX, position), ..._] => WinnerX(position)
+    | [(Player0, position), ..._] => Winner0(position)
+    | [] =>
+      if (Array.to_list(squares) |> List.for_all(a => a != None)) {
+        Draw;
+      } else {
+        Continue;
+      }
+    };
   };
-};
 
 let initialState = {
-  squares: [|None, None, None, None, None, None, None, None, None|],
+  squares: Array.make(size * size, None),
   nextMove: PlayerX,
   winner: Continue,
 };
@@ -104,61 +102,63 @@ let handleGotoHistory = (state, historyStep) => {
   newHistory
 };
 
-[@react.component]
-let make = () => {
+
   let (state, dispatch) = React.useReducer((state, action) => 
-  switch (action) {
-    | Square(square) => handleMove(state, square)
-    | GotoHistory(historyStep) => handleGotoHistory(state, historyStep)
-    }, [initialState]);
+    switch (action) {
+      | Square(square) => handleMove(state, square)
+      | GotoHistory(historyStep) => handleGotoHistory(state, historyStep)
+      }, [initialState]);
   
-    let historyClick = (historyStep, _event) =>
-      dispatch(GotoHistory(historyStep));
-    let currentState = stateOrInitial(state);
-    <div className="game">
-      <div className="game-board">
-        <Board
-          onClick={onClick(dispatch)}
-          squares={currentState.squares}
-          winner={currentState.winner}
-        />
-      </div>
-      <div className="game-info">
-        {
-          switch (currentState.winner) {
-          | Continue =>
-            switch (currentState.nextMove) {
-            | PlayerX => ReasonReact.string("Next player X")
-            | Player0 => ReasonReact.string("Next player 0")
-            }
-          | WinnerX(_) => ReasonReact.string("Player X won")
-          | Winner0(_) => ReasonReact.string("Player 0 won")
-          | Draw => ReasonReact.string("Draw")
+  let historyClick = (historyStep, _event) =>
+    dispatch(GotoHistory(historyStep));
+
+  let currentState = stateOrInitial(state);
+
+  <div className="game">
+    <div className="game-info">
+      {
+        switch (currentState.winner) {
+        | Continue =>
+          switch (currentState.nextMove) {
+          | PlayerX => ReasonReact.string("Next player X")
+          | Player0 => ReasonReact.string("Next player 0")
           }
+        | WinnerX(_) => ReasonReact.string("Player X won")
+        | Winner0(_) => ReasonReact.string("Player 0 won")
+        | Draw => ReasonReact.string("Draw")
         }
-        <ol>
-          {
-            ReasonReact.array(
-              Array.of_list(
-                state
-                |> List.mapi((index, element) => {
-                     let desc =
-                       if (index == 0) {
-                         "Go to game start";
-                       } else {
-                         "Go to step " ++ string_of_int(index);
-                       };
-                     <li key={string_of_int(index)}>
-                       <button onClick={historyClick(index)}>
-                         {ReasonReact.string(desc)}
-                       </button>
-                     </li>;
-                   }),
-              ),
-            )
-          }
-        </ol>
-      </div>
-    </div>;
+      }
+      <ol>
+        {
+          ReasonReact.array(
+            Array.of_list(
+              state
+              |> List.mapi((index, _element) => {
+                    let desc =
+                      if (index == 0) {
+                        "Go to game start";
+                      } else {
+                        "Go to step " ++ string_of_int(index);
+                      };
+                    <li key={string_of_int(index)}>
+                      <button onClick={historyClick(index)}>
+                        {ReasonReact.string(desc)}
+                      </button>
+                    </li>;
+                  }),
+            ),
+          )
+        }
+      </ol>
+    </div>
+    <div className="game-board">
+      <Board
+        onClick={onClick(dispatch)}
+        squares={currentState.squares}
+        winner={currentState.winner}
+        size
+      />
+    </div>
+  </div>;
 
 };
